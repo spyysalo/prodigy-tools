@@ -12,6 +12,7 @@ from logging import warning
 def argparser():
     ap = ArgumentParser()
     ap.add_argument('jsonl', nargs='+')
+    ap.add_argument('--dataset', default=None)
     return ap
 
 
@@ -19,15 +20,18 @@ def normalize_space(text):
     return text.replace('\t', ' ').replace('\n', ' ')
 
 
-def output(id_, text, accepted, fn, ln):
+def output(id_, text, user, accepted, fn, ln):
     try:
         id_ = normalize_space(id_)
         text = normalize_space(text)
+        if user is None:
+            user = str(user)
+        user = normalize_space(user)
         if not accepted:
             accepted = None
         else:
             accepted = ','.join(accepted)
-        print('{}\t{}\t{}'.format(id_, accepted, text))
+        print('{}\t{}\t{}\t{}'.format(id_, user, accepted, text))
     except:
         raise ValueError('{} line {}: {} {} {}'.format(
             fn, ln, id_, text, accepted))
@@ -45,7 +49,16 @@ def process(fn, options):
             id_ = data['meta']['source']
             text = data['text']
             accepted = data['accept']
-            output(id_, text, accepted, fn, ln)
+            session = data['_session_id']
+            if options.dataset is None or session is None:
+                user = session    # Can't figure out which part is user
+            elif session.startswith(options.dataset):
+                user = session[len(options.dataset)+1:]
+            else:
+                warning('dataset ({}) does not match session ({})'.format(
+                    options.dataset, session))
+                user = session
+            output(id_, text, user, accepted, fn, ln)
 
 
 def main(argv):
