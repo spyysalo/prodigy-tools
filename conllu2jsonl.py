@@ -4,6 +4,7 @@
 
 import sys
 import json
+import random
 
 from argparse import ArgumentParser
 
@@ -15,10 +16,15 @@ TEXT_LINE_START = '# text = '
 
 def argparser():
     ap = ArgumentParser()
+    ap.add_argument('-p', '--sample-prob', type=float, default=None)
     ap.add_argument('conllu', nargs='+')
     return ap
 
-def output(text, id_, fn, ln):
+
+def output(text, id_, fn, ln, options):
+    if (options.sample_prob is not None and
+        random.random() > options.sample_prob):
+        return
     if text is None:
         raise ValueError('{} line {}: missing text'.format(fn, ln))
     if id_ is None:
@@ -37,7 +43,7 @@ def process(fn, options):
         for ln, l in enumerate(f, start=1):
             l = l.rstrip('\n')
             if l.isspace() or not l:
-                output(text, id_, fn, ln)
+                output(text, id_, fn, ln, options)
                 text, id_ = None, None
             elif l.startswith(ID_LINE_START):
                 if id_ is not None:
