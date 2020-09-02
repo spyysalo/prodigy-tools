@@ -37,6 +37,20 @@ def output(id_, text, user, accepted, fn, ln):
             fn, ln, id_, text, accepted))
 
 
+def get_annotator(data, options):
+    session = data['_session_id']
+    if 'annotator' in data:
+        return data['annotator']    # Explicitly included
+    if options.dataset is None or session is None:
+        return session    # Can't figure out which part is user
+    elif session.startswith(options.dataset):
+        return session[len(options.dataset)+1:]
+    else:
+        warning('dataset ({}) does not match session ({})'.format(
+            options.dataset, session))
+        return session
+
+
 def process(fn, options):
     with open(fn) as f:
         for ln, l in enumerate(f, start=1):
@@ -49,16 +63,8 @@ def process(fn, options):
             id_ = data['meta']['source']
             text = data['text']
             accepted = data['accept']
-            session = data['_session_id']
-            if options.dataset is None or session is None:
-                user = session    # Can't figure out which part is user
-            elif session.startswith(options.dataset):
-                user = session[len(options.dataset)+1:]
-            else:
-                warning('dataset ({}) does not match session ({})'.format(
-                    options.dataset, session))
-                user = session
-            output(id_, text, user, accepted, fn, ln)
+            annotator = get_annotator(data, options)
+            output(id_, text, annotator, accepted, fn, ln)
 
 
 def main(argv):
