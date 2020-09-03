@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import html
 import random
 
 from argparse import ArgumentParser
@@ -15,20 +16,29 @@ def argparser():
     return ap
 
 
-def output(text, id_):
+def output(id_, before, text, after):
+    before, text, after = [html.escape(t) for t in (before, text, after)]
     data = {
-        'text': text,
+        'html': '<p class="before-context">{}</p><p>{}</p><p class="after-context">{}</p>'.format(before, text, after),
         'meta': { 'source': id_ },
     }
     print(json.dumps(data))
 
 
 def process(fn, options):
+    ids, texts = [], []
     with open(fn) as f:
         for ln, l in enumerate(f, start=1):
             l = l.rstrip('\n')
             id_ = '{}.{}'.format(os.path.splitext(os.path.basename(fn))[0], ln)
-            output(l, id_)
+            ids.append(id_)
+            texts.append(l)
+    for i in range(len(texts)):
+        id_ = ids[i]
+        before = texts[i-1] if i > 0 else '-DOCSTART-'
+        text = texts[i]
+        after = texts[i+1] if i < len(texts)-1 else '-DOCEND-'
+        output(id_, before, text, after)
 
 
 def main(argv):
