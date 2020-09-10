@@ -4,15 +4,26 @@
 
 import sys
 import json
+import html
+import re
 
 from datetime import datetime
 from argparse import ArgumentParser
 from logging import warning
 
 
+BEFORE_CONTEXT_RE = re.compile(r'<p class="before-context">.*?</p>')
+
+AFTER_CONTEXT_RE = re.compile(r'<p class="after-context">.*?</p>')
+
+PARAGRAPH_RE = re.compile(r'<p>(.*)</p>')
+
+
 def argparser():
     ap = ArgumentParser()
     ap.add_argument('jsonl', nargs='+')
+    ap.add_argument('-f', '--mark-flagged', default=False, action='store_true')
+    ap.add_argument('-i', '--include-ignore', default=False, action='store_true')
     ap.add_argument('--dataset', default=None)
     return ap
 
@@ -21,7 +32,7 @@ def normalize_space(text):
     return text.replace('\t', ' ').replace('\n', ' ')
 
 
-def output(id_, text, user, created, accepted, fn, ln):
+def output(id_, text, user, created, accepted, flagged, fn, ln, options):
     try:
         id_ = normalize_space(id_)
         text = normalize_space(text)
@@ -32,10 +43,12 @@ def output(id_, text, user, created, accepted, fn, ln):
             created = str(created)
         created = normalize_space(created)
         if not accepted:
-            accepted = None
+            label_str = 'None'
         else:
-            accepted = ','.join(accepted)
-        print('{}\t{}\t{}\t{}\t{}'.format(id_, user, created, accepted, text))
+            label_str = ','.join(accepted)
+        if options.mark_flagged and flagged:
+            label_str += '+FLAG'
+        print('{}\t{}\t{}\t{}\t{}'.format(id_, user, created, label_str, text))
     except:
         raise ValueError('{} line {}: {} {} {}'.format(
             fn, ln, id_, text, accepted))
@@ -66,21 +79,38 @@ def get_created(data, date_only=False):
         return str(created.date())
 
 
+def get_text(data):
+    if 'text' in data:
+        return data['text']
+    else:
+        text = data['html']
+        # Wipe context, if any
+        text = BEFORE_CONTEXT_RE.sub('', text)
+        text = AFTER_CONTEXT_RE.sub('', text)
+        text = PARAGRAPH_RE.sub(r'\1', text)
+        text = html.unescape(text)
+        return text
+
+
 def process(fn, options):
     with open(fn) as f:
         for ln, l in enumerate(f, start=1):
             data = json.loads(l)
             answer = data.get('answer')
-            if answer != 'accept':
+            if answer == 'accept':
+                accepted = data['accept']
+            elif answer == 'ignore' and options.include_ignore:
+                accepted = ['-IGNORE-']
+            else:
                 warning('{} line {}: skip answer {}'.format(fn, ln, answer))
                 continue
             # Assume source attribute is used as an ID (convention)
             id_ = data['meta']['source']
-            text = data['text']
-            accepted = data['accept']
+            text = get_text(data)
             annotator = get_annotator(data, options)
             created = get_created(data)
-            output(id_, text, annotator, created, accepted, fn, ln)
+            flagged = data.get('flagged', False)
+            output(id_, text, annotator, created, accepted, flagged, fn, ln, options)
 
 
 def main(argv):
