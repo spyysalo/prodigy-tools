@@ -11,17 +11,22 @@ from argparse import ArgumentParser
 
 def argparser():
     ap = ArgumentParser()
+    ap.add_argument('-t', '--text', default=False, action='store_true',
+                    help='include "text" instead of "html" in JSONL')
     ap.add_argument('-p', '--sample-prob', type=float, default=None)
     ap.add_argument('text', nargs='+')
     return ap
 
 
-def output(id_, before, text, after):
+def output(id_, before, text, after, options):
     before, text, after = [html.escape(t) for t in (before, text, after)]
     data = {
-        'html': '<p class="before-context">{}</p><p>{}</p><p class="after-context">{}</p>'.format(before, text, after),
         'meta': { 'source': id_ },
     }
+    if options.text:
+        data['text'] = text
+    else:
+        data['html'] = '<p class="before-context">{}</p><p>{}</p><p class="after-context">{}</p>'.format(before, text, after)
     print(json.dumps(data))
 
 
@@ -38,7 +43,7 @@ def process(fn, options):
         before = texts[i-1] if i > 0 else '-DOCSTART-'
         text = texts[i]
         after = texts[i+1] if i < len(texts)-1 else '-DOCEND-'
-        output(id_, before, text, after)
+        output(id_, before, text, after, options)
 
 
 def main(argv):
