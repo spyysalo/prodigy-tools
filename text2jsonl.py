@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 
 def argparser():
     ap = ArgumentParser()
-    ap.add_argument('-t', '--text', default=False, action='store_true',
+    ap.add_argument('-t', '--text-only', default=False, action='store_true',
                     help='include "text" instead of "html" in JSONL')
     ap.add_argument('-p', '--sample-prob', type=float, default=None)
     ap.add_argument('text', nargs='+')
@@ -20,13 +20,12 @@ def argparser():
 
 def output(id_, before, text, after, options):
     before, text, after = [html.escape(t) for t in (before, text, after)]
-    data = {
-        'meta': { 'source': id_ },
-    }
-    if options.text:
+    data = {}
+    if options.text_only:
         data['text'] = text
     else:
         data['html'] = '<p class="before-context">{}</p><p>{}</p><p class="after-context">{}</p>'.format(before, text, after)
+    data['meta'] = { 'source': id_ }
     print(json.dumps(data))
 
 
